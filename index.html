@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Word Magic ✨</title>
+  <style>
+    :root {
+      --bg1: #0b1020; --bg2: #1a0835;
+      --purple: #7c3aed; --pink: #ec4899; --gold: #fbbf24; --green: #34d399;
+      --text: #f8fafc; --muted: rgba(248,250,252,.75);
+      --card: rgba(255,255,255,.10); --card2: rgba(255,255,255,.13);
+      --border: rgba(255,255,255,.15); --shadow: 0 20px 60px rgba(0,0,0,.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: ui-rounded, -apple-system, "SF Pro Display", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 25%, rgba(124,58,237,.26), transparent 60%),
+        radial-gradient(800px 500px at 50% 90%, rgba(251,191,36,.18), transparent 60%),
+        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+      touch-action: manipulation; user-select: none;
+    }
+
+    /* Floating background sparkles */
+    .bg-sparkle {
+      position: fixed; pointer-events: none; z-index: 0;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: white; opacity: 0;
+      animation: sparkle-float linear infinite;
+      filter: drop-shadow(0 0 5px rgba(255,255,255,.7));
+    }
+    @keyframes sparkle-float {
+      0%   { opacity: 0; transform: translateY(105vh) translateX(0) scale(1); }
+      10%  { opacity: 0.45; }
+      90%  { opacity: 0.35; }
+      100% { opacity: 0; transform: translateY(-10vh) translateX(60px) scale(.5); }
+    }
+
+    /* Confetti */
+    #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 200; overflow: hidden; }
+    #confetti i {
+      position: absolute; display: block; width: 10px; height: 13px; border-radius: 3px;
+      animation: confetti-fall 1.5s ease-in forwards;
+    }
+    @keyframes confetti-fall {
+      0%   { transform: translateY(-5vh) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(540deg); opacity: .2; }
+    }
+
+    /* === LAYOUT === */
+    .app {
+      position: relative; z-index: 1;
+      height: 100%; padding: 10px;
+      display: flex; flex-direction: column; gap: 8px;
+      max-width: 1100px; margin: 0 auto;
+    }
+
+    /* === HEADER === */
+    header {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, rgba(124,58,237,.25), rgba(236,72,153,.18), rgba(251,191,36,.12));
+      border: 1px solid var(--border); border-radius: 20px;
+    }
+    .title-area { display: flex; align-items: center; gap: 10px; }
+    .badge { font-size: 26px; }
+    h1 { font-size: clamp(16px, 2.8vw, 24px); font-weight: 900; letter-spacing: .2px; }
+    .sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .header-right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .wrong-pill {
+      padding: 6px 13px; border-radius: 999px;
+      background: rgba(0,0,0,.2); border: 1px solid var(--border);
+      font-size: 13px; font-weight: 800; white-space: nowrap;
+    }
+    .wrong-pill .count { color: var(--pink); }
+
+    button {
+      padding: 9px 15px; border-radius: 14px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+      color: var(--text); font-size: 14px; font-weight: 800;
+      cursor: pointer; transition: transform .08s, filter .08s;
+      touch-action: manipulation;
+    }
+    button:active { transform: scale(.96); filter: brightness(1.15); }
+    button.primary {
+      background: linear-gradient(135deg, rgba(124,58,237,.6), rgba(236,72,153,.5));
+      border-color: rgba(255,255,255,.25);
+    }
+
+    /* === GAME AREA (picture + controls) === */
+    .game-area {
+      flex: 1 1 0; min-height: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    @media (min-width: 680px) and (orientation: landscape) {
+      .game-area { flex-direction: row; }
+    }
+
+    /* === PICTURE PANEL === */
+    .picture-panel {
+      flex: 1 1 0; min-height: 0; min-width: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .picture-wrap {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border: 1px solid var(--border); border-radius: 24px;
+      position: relative; overflow: hidden;
+    }
+    .picture-wrap svg {
+      width: min(100%, 340px); height: min(100%, 340px);
+      display: block;
+    }
+
+    /* Hint text when no wrong guesses yet */
+    .picture-hint {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      text-align: center; pointer-events: none;
+      transition: opacity .4s;
+    }
+    .picture-hint .hint-emoji { font-size: 52px; opacity: .25; display: block; margin-bottom: 6px; }
+    .picture-hint .hint-text { font-size: 12px; color: var(--muted); opacity: .5; }
+    .picture-hint.hidden { opacity: 0; }
+
+    /* SVG part reveal animation */
+    .svg-part { transition: opacity .6s ease; opacity: 0; }
+    .svg-part.show { opacity: 1; }
+
+    /* === RIGHT PANEL (word + keyboard) === */
+    .controls-panel {
+      flex-shrink: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    @media (min-width: 680px) and (orientation: landscape) {
+      .controls-panel { flex: 0 0 380px; }
+    }
+
+    /* === WORD DISPLAY === */
+    .word-area {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 14px 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .word-display { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+    .letter-slot {
+      width: 42px; height: 48px;
+      border-bottom: 3px solid rgba(255,255,255,.35);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .letter-slot .ltr {
+      font-size: 26px; font-weight: 900; color: var(--gold);
+      opacity: 0; transform: scale(0) rotate(-15deg);
+      transition: opacity .25s, transform .35s cubic-bezier(.34,1.56,.64,1);
+      display: inline-block;
+    }
+    .letter-slot .ltr.show { opacity: 1; transform: scale(1) rotate(0deg); }
+
+    .wrong-row {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
+      min-height: 22px;
+    }
+    .wrong-label { font-size: 11px; color: var(--muted); }
+    .wrong-ltr {
+      font-size: 14px; font-weight: 900; color: rgba(248,72,153,.75);
+      text-decoration: line-through; display: inline-block;
+    }
+
+    /* === KEYBOARD === */
+    .keyboard {
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 10px 8px; flex-shrink: 0;
+    }
+    .key-row { display: flex; gap: 5px; justify-content: center; margin-bottom: 5px; }
+    .key-row:last-child { margin-bottom: 0; }
+    .key {
+      width: 54px; height: 50px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.22);
+      background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+      color: var(--text); font-size: 17px; font-weight: 900;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform .08s, opacity .2s, background .15s;
+      touch-action: manipulation; flex-shrink: 0;
+    }
+    .key:active:not(.used) { transform: scale(.90); }
+    .key.used-correct {
+      background: linear-gradient(135deg, rgba(52,211,153,.35), rgba(52,211,153,.2));
+      border-color: rgba(52,211,153,.45); opacity: .4; cursor: default;
+    }
+    .key.used-wrong {
+      background: rgba(0,0,0,.15); border-color: rgba(255,255,255,.07);
+      opacity: .25; cursor: default;
+    }
+
+    /* Resize keys on smaller screens */
+    @media (max-width: 420px) {
+      .key { width: 44px; height: 44px; font-size: 15px; }
+      .key-row { gap: 4px; }
+    }
+    @media (max-width: 360px) {
+      .key { width: 38px; height: 40px; font-size: 13px; border-radius: 9px; }
+      .key-row { gap: 3px; }
+    }
+
+    /* === SPARKLE BURST (correct guess) === */
+    .spark {
+      position: fixed; pointer-events: none; z-index: 150;
+      width: 8px; height: 8px; border-radius: 50%;
+      animation: spark-fly .7s ease-out forwards;
+    }
+    @keyframes spark-fly {
+      0%   { transform: translate(0,0) scale(1.2); opacity: 1; }
+      100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    }
+
+    /* === OVERLAY (win/lose) === */
+    .overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.72);
+      opacity: 0; pointer-events: none;
+      transition: opacity .35s;
+    }
+    .overlay.show { opacity: 1; pointer-events: all; }
+    .ov-card {
+      background: linear-gradient(135deg, rgba(15,5,40,.95), rgba(30,5,55,.95));
+      border: 1.5px solid rgba(255,255,255,.25); border-radius: 32px;
+      padding: 36px 44px; text-align: center;
+      box-shadow: 0 30px 90px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1);
+      transform: scale(.82);
+      transition: transform .4s cubic-bezier(.34,1.56,.64,1);
+      max-width: 90vw;
+    }
+    .overlay.show .ov-card { transform: scale(1); }
+    .ov-emoji { font-size: 64px; margin-bottom: 10px; display: block; }
+    .ov-title { font-size: 32px; font-weight: 900; margin-bottom: 6px; }
+    .ov-word {
+      font-size: 48px; font-weight: 900; color: var(--gold);
+      letter-spacing: 5px; margin: 12px 0 8px;
+      animation: word-pop .5s cubic-bezier(.34,1.56,.64,1) .25s both;
+    }
+    @keyframes word-pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .ov-sub { color: var(--muted); font-size: 15px; margin-bottom: 22px; }
+    .ov-buttons { display: flex; gap: 10px; justify-content: center; }
+  </style>
+</head>
+<body>
+
+<div id="confetti"></div>
+
+<div class="app">
+  <header>
+    <div class="title-area">
+      <span class="badge">✨</span>
+      <div>
+        <h1>Word Magic</h1>
+        <div class="sub">Guess the letters!</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="wrong-pill">Wrong: <span class="count" id="wrong-count">0</span>/6</div>
+      <button class="primary" onclick="newGame()">New Word 🔀</button>
+    </div>
+  </header>
+
+  <div class="game-area">
+    <!-- Picture -->
+    <div class="picture-panel">
+      <div class="picture-wrap">
+        <svg id="game-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="picture-hint" id="picture-hint">
+          <span class="hint-emoji" id="hint-emoji">🎨</span>
+          <span class="hint-text">Guess wrong to reveal<br>a hidden picture!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-panel">
+      <div class="word-area">
+        <div class="word-display" id="word-display"></div>
+        <div class="wrong-row" id="wrong-row">
+          <span class="wrong-label" id="wrong-label" style="display:none">Tried:</span>
+        </div>
+      </div>
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Win/Lose Overlay -->
+<div class="overlay" id="overlay">
+  <div class="ov-card">
+    <span class="ov-emoji" id="ov-emoji">🎉</span>
+    <div class="ov-title" id="ov-title">You got it!</div>
+    <div class="ov-word" id="ov-word">APPLE</div>
+    <div class="ov-sub" id="ov-sub">Amazing spelling! ⭐</div>
+    <div class="ov-buttons">
+      <button class="primary" onclick="newGame()">Play Again ✨</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================================
+// WORD DATA – each word has 6 SVG parts
+// that reveal one-by-one on wrong guesses
+// ========================================
+const WORDS = [
+
+  { word:"SUN", emoji:"☀️", parts:[
+    // p0: Sun circle
+    `<circle cx="100" cy="108" r="52" fill="#fde047" stroke="#ca8a04" stroke-width="2.5"/>`,
+    // p1: Rays
+    `<g stroke="#fde047" stroke-width="7" stroke-linecap="round">
+      <line x1="100" y1="48" x2="100" y2="22"/><line x1="100" y1="168" x2="100" y2="194"/>
+      <line x1="40" y1="108" x2="14" y2="108"/><line x1="160" y1="108" x2="186" y2="108"/>
+      <line x1="63" y1="71" x2="44" y2="52"/><line x1="137" y1="71" x2="156" y2="52"/>
+      <line x1="63" y1="145" x2="44" y2="164"/><line x1="137" y1="145" x2="156" y2="164"/>
+    </g>`,
+    // p2: Eyes
+    `<ellipse cx="85" cy="102" rx="8" ry="9" fill="#1e293b"/>
+     <ellipse cx="115" cy="102" rx="8" ry="9" fill="#1e293b"/>
+     <circle cx="83" cy="100" r="2.5" fill="white"/>
+     <circle cx="113" cy="100" r="2.5" fill="white"/>`,
+    // p3: Smile
+    `<path d="M78 122 Q100 142 122 122" stroke="#1e293b" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+    // p4: Rosy cheeks
+    `<ellipse cx="68" cy="115" rx="11" ry="8" fill="rgba(236,72,153,.38)"/>
+     <ellipse cx="132" cy="115" rx="11" ry="8" fill="rgba(236,72,153,.38)"/>`,
+    // p5: Eyebrows + sun hat
+    `<path d="M76 90 Q85 83 94 88" stroke="#1e293b" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+     <path d="M106 88 Q115 83 124 90" stroke="#1e293b" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
+  ]},
+
+  { word:"CAT", emoji:"🐱", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="145" rx="44" ry="42" fill="#f97316" stroke="#ea580c" stroke-width="2"/>
+     <ellipse cx="100" cy="152" rx="26" ry="28" fill="#fdba74"/>`,
+    // p1: Head
+    `<circle cx="100" cy="86" r="38" fill="#f97316" stroke="#ea580c" stroke-width="2"/>`,
+    // p2: Ears + inner ear
+    `<polygon points="68,60 56,28 86,52" fill="#f97316" stroke="#ea580c" stroke-width="2"/>
+     <polygon points="132,60 144,28 114,52" fill="#f97316" stroke="#ea580c" stroke-width="2"/>
+     <polygon points="70,57 62,36 82,50" fill="#fca5a5"/>
+     <polygon points="130,57 138,36 118,50" fill="#fca5a5"/>`,
+    // p3: Eyes, nose, mouth
+    `<ellipse cx="87" cy="83" rx="9" ry="10" fill="#4ade80"/>
+     <ellipse cx="113" cy="83" rx="9" ry="10" fill="#4ade80"/>
+     <ellipse cx="87" cy="85" rx="5.5" ry="6.5" fill="#0f172a"/>
+     <ellipse cx="113" cy="85" rx="5.5" ry="6.5" fill="#0f172a"/>
+     <circle cx="89" cy="83" r="2" fill="white"/>
+     <circle cx="115" cy="83" r="2" fill="white"/>
+     <polygon points="100,96 96,101 104,101" fill="#be185d"/>
+     <path d="M96 101 Q100 106 104 101" stroke="#be185d" stroke-width="2" fill="none"/>`,
+    // p4: Whiskers
+    `<g stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round">
+       <line x1="58" y1="88" x2="83" y2="94"/>
+       <line x1="58" y1="96" x2="83" y2="96"/>
+       <line x1="58" y1="104" x2="83" y2="98"/>
+       <line x1="142" y1="88" x2="117" y2="94"/>
+       <line x1="142" y1="96" x2="117" y2="96"/>
+       <line x1="142" y1="104" x2="117" y2="98"/>
+     </g>`,
+    // p5: Tail
+    `<path d="M144 175 Q178 160 172 125 Q168 100 148 92" stroke="#f97316" stroke-width="9" fill="none" stroke-linecap="round"/>
+     <circle cx="148" cy="89" r="8" fill="#fdba74"/>`,
+  ]},
+
+  { word:"DOG", emoji:"🐶", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="145" rx="48" ry="42" fill="#a16207" stroke="#78350f" stroke-width="2"/>
+     <ellipse cx="100" cy="155" rx="28" ry="24" fill="#fef3c7"/>`,
+    // p1: Head
+    `<circle cx="100" cy="84" r="40" fill="#a16207" stroke="#78350f" stroke-width="2"/>`,
+    // p2: Floppy ears
+    `<ellipse cx="65" cy="94" rx="17" ry="28" fill="#78350f" transform="rotate(-12 65 94)"/>
+     <ellipse cx="135" cy="94" rx="17" ry="28" fill="#78350f" transform="rotate(12 135 94)"/>`,
+    // p3: Eyes, nose
+    `<circle cx="87" cy="80" r="9" fill="#0f172a"/>
+     <circle cx="113" cy="80" r="9" fill="#0f172a"/>
+     <circle cx="85" cy="78" r="3" fill="white"/>
+     <circle cx="111" cy="78" r="3" fill="white"/>
+     <ellipse cx="100" cy="95" rx="12" ry="9" fill="#0f172a"/>
+     <circle cx="96" cy="94" r="3" fill="#374151"/>
+     <circle cx="104" cy="94" r="3" fill="#374151"/>`,
+    // p4: Tongue
+    `<ellipse cx="100" cy="112" rx="11" ry="14" fill="#f472b6"/>
+     <line x1="100" y1="104" x2="100" y2="124" stroke="#e879a0" stroke-width="2"/>`,
+    // p5: Tail
+    `<path d="M148 165 Q172 148 168 118 Q165 98 155 88" stroke="#a16207" stroke-width="10" fill="none" stroke-linecap="round"/>`,
+  ]},
+
+  { word:"FISH", emoji:"🐠", parts:[
+    // p0: Body
+    `<ellipse cx="95" cy="100" rx="55" ry="36" fill="#f97316" stroke="#ea580c" stroke-width="2"/>
+     <ellipse cx="95" cy="100" rx="40" ry="24" fill="#fb923c" opacity=".5"/>`,
+    // p1: Tail
+    `<path d="M148 100 L175 70 L180 100 L175 130 Z" fill="#ea580c" stroke="#c2410c" stroke-width="1.5"/>`,
+    // p2: Fins
+    `<path d="M80 64 Q95 50 110 64" stroke="#ea580c" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <path d="M80 136 Q95 150 110 136" stroke="#ea580c" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    // p3: Eye + smile
+    `<circle cx="62" cy="92" r="11" fill="white" stroke="#ea580c" stroke-width="1.5"/>
+     <circle cx="62" cy="92" r="6" fill="#0f172a"/>
+     <circle cx="60" cy="90" r="2" fill="white"/>
+     <path d="M52 108 Q62 118 72 108" stroke="#c2410c" stroke-width="2.5" fill="none" stroke-linecap="round"/>`,
+    // p4: Scale lines
+    `<g stroke="#c2410c" stroke-width="1.5" fill="none" opacity=".6">
+       <path d="M90 78 Q100 90 90 102"/><path d="M104 74 Q116 88 104 102"/>
+       <path d="M118 80 Q128 92 118 104"/>
+     </g>`,
+    // p5: Bubbles
+    `<circle cx="30" cy="75" r="7" stroke="rgba(186,230,253,.8)" stroke-width="2" fill="rgba(186,230,253,.2)"/>
+     <circle cx="18" cy="55" r="5" stroke="rgba(186,230,253,.8)" stroke-width="2" fill="rgba(186,230,253,.2)"/>
+     <circle cx="40" cy="48" r="9" stroke="rgba(186,230,253,.8)" stroke-width="2" fill="rgba(186,230,253,.2)"/>`,
+  ]},
+
+  { word:"FROG", emoji:"🐸", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="125" rx="58" ry="52" fill="#4ade80" stroke="#16a34a" stroke-width="2.5"/>
+     <ellipse cx="100" cy="132" rx="38" ry="36" fill="#bbf7d0"/>`,
+    // p1: Back legs
+    `<ellipse cx="48" cy="162" rx="22" ry="14" fill="#4ade80" stroke="#16a34a" stroke-width="2" transform="rotate(-30 48 162)"/>
+     <ellipse cx="152" cy="162" rx="22" ry="14" fill="#4ade80" stroke="#16a34a" stroke-width="2" transform="rotate(30 152 162)"/>`,
+    // p2: Front arms
+    `<ellipse cx="38" cy="118" rx="16" ry="9" fill="#4ade80" stroke="#16a34a" stroke-width="2" transform="rotate(-20 38 118)"/>
+     <ellipse cx="162" cy="118" rx="16" ry="9" fill="#4ade80" stroke="#16a34a" stroke-width="2" transform="rotate(20 162 118)"/>`,
+    // p3: Bug eyes on head
+    `<circle cx="78" cy="68" r="20" fill="#4ade80" stroke="#16a34a" stroke-width="2.5"/>
+     <circle cx="122" cy="68" r="20" fill="#4ade80" stroke="#16a34a" stroke-width="2.5"/>
+     <circle cx="78" cy="68" r="12" fill="#0f172a"/>
+     <circle cx="122" cy="68" r="12" fill="#0f172a"/>
+     <circle cx="74" cy="64" r="4" fill="white"/>
+     <circle cx="118" cy="64" r="4" fill="white"/>`,
+    // p4: Wide smile + nostrils
+    `<path d="M65 102 Q100 124 135 102" stroke="#16a34a" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <circle cx="93" cy="92" r="3" fill="#16a34a"/>
+     <circle cx="107" cy="92" r="3" fill="#16a34a"/>`,
+    // p5: Spots + lily pad
+    `<circle cx="78" cy="140" r="8" fill="rgba(22,163,74,.35)"/>
+     <circle cx="122" cy="140" r="8" fill="rgba(22,163,74,.35)"/>
+     <circle cx="100" cy="155" r="6" fill="rgba(22,163,74,.35)"/>
+     <ellipse cx="100" cy="192" rx="52" ry="10" fill="#16a34a" opacity=".6"/>`,
+  ]},
+
+  { word:"DUCK", emoji:"🐥", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="135" rx="58" ry="50" fill="#fde047" stroke="#ca8a04" stroke-width="2.5"/>
+     <ellipse cx="100" cy="145" rx="36" ry="30" fill="#fef9c3"/>`,
+    // p1: Head
+    `<circle cx="100" cy="72" r="36" fill="#fde047" stroke="#ca8a04" stroke-width="2.5"/>`,
+    // p2: Orange beak
+    `<path d="M64 74 L45 80 L45 90 L64 84 Z" fill="#f97316" stroke="#ea580c" stroke-width="1.5"/>`,
+    // p3: Wing
+    `<path d="M60 125 Q55 100 72 88 Q95 78 130 90 Q145 98 148 118" stroke="#ca8a04" stroke-width="3" fill="rgba(254,215,0,.4)" stroke-linecap="round"/>`,
+    // p4: Eye
+    `<circle cx="82" cy="66" r="9" fill="#0f172a"/>
+     <circle cx="79" cy="63" r="3" fill="white"/>`,
+    // p5: Water ripples
+    `<ellipse cx="100" cy="185" rx="62" ry="8" stroke="rgba(125,211,252,.8)" stroke-width="2.5" fill="none"/>
+     <ellipse cx="100" cy="185" rx="42" ry="5" stroke="rgba(125,211,252,.5)" stroke-width="2" fill="none"/>`,
+  ]},
+
+  { word:"CAKE", emoji:"🎂", parts:[
+    // p0: Bottom tier
+    `<rect x="30" y="130" width="140" height="55" rx="8" fill="#f472b6" stroke="#db2777" stroke-width="2"/>
+     <rect x="30" y="122" width="140" height="14" rx="4" fill="#fb7185"/>`,
+    // p1: Top tier
+    `<rect x="52" y="82" width="96" height="48" rx="8" fill="#c084fc" stroke="#9333ea" stroke-width="2"/>
+     <rect x="52" y="74" width="96" height="14" rx="4" fill="#d8b4fe"/>`,
+    // p2: Frosting swirls on tiers
+    `<g fill="white" opacity=".85">
+       <circle cx="55" cy="121" r="7"/><circle cx="75" cy="121" r="7"/><circle cx="95" cy="121" r="7"/>
+       <circle cx="115" cy="121" r="7"/><circle cx="135" cy="121" r="7"/><circle cx="155" cy="121" r="7"/>
+       <circle cx="65" cy="73" r="6"/><circle cx="85" cy="73" r="6"/><circle cx="105" cy="73" r="6"/><circle cx="125" cy="73" r="6"/>
+     </g>`,
+    // p3: Three candles
+    `<rect x="78" y="56" width="9" height="22" rx="3" fill="#fbbf24"/>
+     <rect x="96" y="52" width="9" height="26" rx="3" fill="#f472b6"/>
+     <rect x="114" y="56" width="9" height="22" rx="3" fill="#818cf8"/>`,
+    // p4: Flames
+    `<path d="M82 56 Q78 48 82 42 Q87 48 83 56" fill="#fb923c"/>
+     <path d="M100 52 Q96 43 100 37 Q105 43 101 52" fill="#fb923c"/>
+     <path d="M118 56 Q114 48 118 42 Q123 48 119 56" fill="#fb923c"/>`,
+    // p5: Decorative stars
+    `<text x="38" y="160" font-size="16" fill="white" opacity=".8">★</text>
+     <text x="152" y="160" font-size="16" fill="white" opacity=".8">★</text>
+     <text x="62" y="108" font-size="14" fill="white" opacity=".8">♥</text>
+     <text x="124" y="108" font-size="14" fill="white" opacity=".8">♥</text>
+     <text x="92" y="168" font-size="18" fill="white" opacity=".7">🎉</text>`,
+  ]},
+
+  { word:"STAR", emoji:"⭐", parts:[
+    // p0: Big star
+    `<polygon points="100,15 118,65 172,65 128,97 145,148 100,118 55,148 72,97 28,65 82,65" fill="#fde047" stroke="#ca8a04" stroke-width="2"/>`,
+    // p1: Inner glow
+    `<polygon points="100,30 114,70 156,70 122,94 136,136 100,112 64,136 78,94 44,70 86,70" fill="#fef9c3" opacity=".5"/>`,
+    // p2: Sparkle lines
+    `<g stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round">
+       <line x1="100" y1="2" x2="100" y2="10"/>
+       <line x1="165" y1="30" x2="158" y2="36"/>
+       <line x1="185" y1="90" x2="177" y2="92"/>
+       <line x1="15" y1="90" x2="23" y2="92"/>
+       <line x1="35" y1="30" x2="42" y2="36"/>
+     </g>`,
+    // p3: Eyes
+    `<ellipse cx="87" cy="82" rx="8" ry="9" fill="#1e293b"/>
+     <ellipse cx="113" cy="82" rx="8" ry="9" fill="#1e293b"/>
+     <circle cx="85" cy="80" r="2.5" fill="white"/>
+     <circle cx="111" cy="80" r="2.5" fill="white"/>`,
+    // p4: Smile
+    `<path d="M82 100 Q100 116 118 100" stroke="#1e293b" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    // p5: Small stars around
+    `<text x="12" y="50" font-size="14" fill="#fbbf24" opacity=".8">✦</text>
+     <text x="174" y="50" font-size="14" fill="#fbbf24" opacity=".8">✦</text>
+     <text x="14" y="140" font-size="12" fill="#fbbf24" opacity=".8">✦</text>
+     <text x="174" y="140" font-size="12" fill="#fbbf24" opacity=".8">✦</text>
+     <text x="92" y="192" font-size="12" fill="#fbbf24" opacity=".8">✦</text>`,
+  ]},
+
+  { word:"TREE", emoji:"🌳", parts:[
+    // p0: Trunk
+    `<rect x="86" y="130" width="28" height="60" rx="6" fill="#92400e" stroke="#78350f" stroke-width="2"/>
+     <rect x="72" y="175" width="56" height="18" rx="6" fill="#78350f"/>`,
+    // p1: Bottom foliage
+    `<ellipse cx="100" cy="128" rx="62" ry="46" fill="#16a34a" stroke="#15803d" stroke-width="2"/>`,
+    // p2: Middle foliage
+    `<ellipse cx="100" cy="98" rx="50" ry="40" fill="#22c55e" stroke="#16a34a" stroke-width="2"/>`,
+    // p3: Top foliage
+    `<ellipse cx="100" cy="68" rx="38" ry="34" fill="#4ade80" stroke="#22c55e" stroke-width="2"/>`,
+    // p4: Red apples
+    `<circle cx="72" cy="120" r="11" fill="#ef4444" stroke="#dc2626" stroke-width="1.5"/>
+     <circle cx="130" cy="114" r="10" fill="#ef4444" stroke="#dc2626" stroke-width="1.5"/>
+     <circle cx="100" cy="130" r="10" fill="#f87171" stroke="#dc2626" stroke-width="1.5"/>
+     <line x1="72" y1="109" x2="74" y2="105" stroke="#15803d" stroke-width="2"/>
+     <line x1="130" y1="104" x2="132" y2="100" stroke="#15803d" stroke-width="2"/>`,
+    // p5: Grass + clouds
+    `<ellipse cx="100" cy="192" rx="72" ry="10" fill="#4ade80" opacity=".55"/>
+     <ellipse cx="38" cy="32" rx="26" ry="14" fill="rgba(255,255,255,.2)"/>
+     <ellipse cx="162" cy="24" rx="22" ry="12" fill="rgba(255,255,255,.2)"/>`,
+  ]},
+
+  { word:"KITE", emoji:"🪁", parts:[
+    // p0: Kite diamond
+    `<path d="M100 18 L162 100 L100 158 L38 100 Z" fill="#7c3aed" stroke="#5b21b6" stroke-width="2.5"/>
+     <path d="M100 18 L162 100 L100 158 L38 100 Z" fill="url(#kite-grad)" stroke="none"/>
+     <defs>
+       <linearGradient id="kite-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+         <stop offset="0%" style="stop-color:#ec4899;stop-opacity:.7"/>
+         <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:.3"/>
+       </linearGradient>
+     </defs>`,
+    // p1: Cross design on kite
+    `<line x1="100" y1="18" x2="100" y2="158" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
+     <line x1="38" y1="100" x2="162" y2="100" stroke="rgba(255,255,255,.5)" stroke-width="2"/>`,
+    // p2: String going down
+    `<path d="M100 158 Q92 172 106 182 Q94 190 108 198" stroke="#d1d5db" stroke-width="2.5" fill="none"/>`,
+    // p3: Tail bows
+    `<ellipse cx="84" cy="166" rx="9" ry="5" fill="#fbbf24" transform="rotate(-20 84 166)"/>
+     <ellipse cx="98" cy="176" rx="9" ry="5" fill="#f472b6" transform="rotate(10 98 176)"/>
+     <ellipse cx="110" cy="188" rx="9" ry="5" fill="#4ade80" transform="rotate(-15 110 188)"/>`,
+    // p4: Clouds
+    `<ellipse cx="24" cy="38" rx="22" ry="13" fill="rgba(255,255,255,.22)"/>
+     <ellipse cx="170" cy="52" rx="20" ry="12" fill="rgba(255,255,255,.22)"/>`,
+    // p5: Birds and sun
+    `<path d="M155 18 Q160 12 166 18" stroke="rgba(255,255,255,.65)" stroke-width="2.5" fill="none"/>
+     <path d="M172 25 Q178 18 184 25" stroke="rgba(255,255,255,.65)" stroke-width="2.5" fill="none"/>
+     <circle cx="16" cy="20" r="10" fill="#fde047" opacity=".7"/>`,
+  ]},
+
+  { word:"MOON", emoji:"🌙", parts:[
+    // p0: Crescent moon (two-circle trick)
+    `<circle cx="108" cy="100" r="72" fill="#fde047"/>
+     <circle cx="140" cy="82" r="62" fill="#1e0b35"/>
+     <circle cx="108" cy="100" r="72" fill="none" stroke="#ca8a04" stroke-width="2.5"/>`,
+    // p1: Stars scattered
+    `<text x="30" y="50" font-size="18" fill="#fde047">✦</text>
+     <text x="165" y="155" font-size="14" fill="#fde047" opacity=".8">✦</text>
+     <text x="18" y="130" font-size="12" fill="#fde047" opacity=".7">✦</text>
+     <text x="160" y="42" font-size="16" fill="#fde047" opacity=".75">✦</text>`,
+    // p2: Sleepy face
+    `<path d="M78 95 Q84 88 90 95" stroke="#78350f" stroke-width="3" fill="none" stroke-linecap="round"/>
+     <path d="M64 110 Q78 124 92 110" stroke="#78350f" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
+    // p3: Zzz (sleeping)
+    `<text x="20" y="80" font-size="22" fill="#93c5fd" opacity=".8" font-weight="bold">z</text>
+     <text x="38" y="58" font-size="16" fill="#93c5fd" opacity=".7" font-weight="bold">z</text>
+     <text x="52" y="40" font-size="12" fill="#93c5fd" opacity=".6" font-weight="bold">z</text>`,
+    // p4: More stars
+    `<text x="148" y="82" font-size="10" fill="#fde047" opacity=".7">★</text>
+     <text x="26" y="168" font-size="11" fill="#fde047" opacity=".6">★</text>
+     <text x="168" y="115" font-size="9" fill="#fde047" opacity=".7">★</text>`,
+    // p5: Glow around moon
+    `<circle cx="88" cy="104" r="76" fill="none" stroke="#fde047" stroke-width="4" opacity=".12"/>
+     <circle cx="88" cy="104" r="82" fill="none" stroke="#fde047" stroke-width="2" opacity=".07"/>`,
+  ]},
+
+  { word:"BEAR", emoji:"🐻", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="140" rx="52" ry="48" fill="#92400e" stroke="#78350f" stroke-width="2.5"/>
+     <ellipse cx="100" cy="148" rx="32" ry="30" fill="#fef3c7"/>`,
+    // p1: Head
+    `<circle cx="100" cy="78" r="44" fill="#92400e" stroke="#78350f" stroke-width="2.5"/>`,
+    // p2: Ears
+    `<circle cx="64" cy="44" r="20" fill="#92400e" stroke="#78350f" stroke-width="2.5"/>
+     <circle cx="136" cy="44" r="20" fill="#92400e" stroke="#78350f" stroke-width="2.5"/>
+     <circle cx="64" cy="44" r="12" fill="#fca5a5"/>
+     <circle cx="136" cy="44" r="12" fill="#fca5a5"/>`,
+    // p3: Face
+    `<circle cx="85" cy="72" r="9" fill="#0f172a"/>
+     <circle cx="115" cy="72" r="9" fill="#0f172a"/>
+     <circle cx="83" cy="70" r="3" fill="white"/>
+     <circle cx="113" cy="70" r="3" fill="white"/>
+     <ellipse cx="100" cy="88" rx="14" ry="10" fill="#78350f"/>
+     <circle cx="95" cy="87" r="3.5" fill="#0f172a"/>
+     <circle cx="105" cy="87" r="3.5" fill="#0f172a"/>
+     <path d="M90 94 Q100 104 110 94" stroke="#78350f" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    // p4: Tummy patch
+    `<ellipse cx="100" cy="145" rx="28" ry="26" fill="#fef3c7" stroke="#fde68a" stroke-width="1.5"/>`,
+    // p5: Paws
+    `<circle cx="54" cy="164" r="14" fill="#92400e" stroke="#78350f" stroke-width="2"/>
+     <circle cx="146" cy="164" r="14" fill="#92400e" stroke="#78350f" stroke-width="2"/>
+     <g fill="#78350f"><circle cx="50" cy="157" r="4"/><circle cx="58" cy="157" r="4"/><circle cx="54" cy="152" r="4"/></g>
+     <g fill="#78350f"><circle cx="142" cy="157" r="4"/><circle cx="150" cy="157" r="4"/><circle cx="146" cy="152" r="4"/></g>`,
+  ]},
+
+  { word:"APPLE", emoji:"🍎", parts:[
+    // p0: Apple body
+    `<path d="M100 40 Q82 30 68 38 Q42 52 44 90 Q46 130 68 158 Q82 172 100 172 Q118 172 132 158 Q154 130 156 90 Q158 52 132 38 Q118 30 100 40 Z" fill="#ef4444" stroke="#dc2626" stroke-width="2.5"/>
+     <path d="M100 40 Q90 35 84 44 Q78 56 84 76 Q90 62 100 58 Q110 62 116 76 Q122 56 116 44 Q110 35 100 40 Z" fill="#f87171"/>`,
+    // p1: Leaf
+    `<path d="M100 32 Q115 10 130 18 Q120 30 100 32 Z" fill="#16a34a" stroke="#15803d" stroke-width="1.5"/>`,
+    // p2: Stem
+    `<path d="M100 34 Q104 20 112 14" stroke="#78350f" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    // p3: Shine highlight
+    `<path d="M62 70 Q66 52 80 56 Q78 72 62 70 Z" fill="rgba(255,255,255,.5)"/>`,
+    // p4: Worm head
+    `<circle cx="120" cy="110" r="14" fill="#a3e635" stroke="#65a30d" stroke-width="2"/>
+     <circle cx="114" cy="106" r="3.5" fill="#1e293b"/>
+     <circle cx="126" cy="106" r="3.5" fill="#1e293b"/>
+     <circle cx="113" cy="105" r="1.2" fill="white"/>
+     <circle cx="125" cy="105" r="1.2" fill="white"/>
+     <path d="M114 116 Q120 122 126 116" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+     <line x1="114" y1="100" x2="113" y2="94" stroke="#65a30d" stroke-width="2"/>
+     <line x1="126" y1="100" x2="127" y2="94" stroke="#65a30d" stroke-width="2"/>`,
+    // p5: Worm body + ground
+    `<path d="M120 122 Q135 130 132 142 Q128 155 138 162" stroke="#a3e635" stroke-width="7" fill="none" stroke-linecap="round"/>
+     <ellipse cx="100" cy="185" rx="65" ry="10" fill="#22c55e" opacity=".55"/>`,
+  ]},
+
+  { word:"BUNNY", emoji:"🐰", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="148" rx="46" ry="44" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2"/>
+     <ellipse cx="100" cy="155" rx="28" ry="26" fill="#fecdd3"/>`,
+    // p1: Head
+    `<circle cx="100" cy="90" r="38" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2"/>`,
+    // p2: Long ears
+    `<ellipse cx="80" cy="44" rx="12" ry="34" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2" transform="rotate(-8 80 44)"/>
+     <ellipse cx="120" cy="44" rx="12" ry="34" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2" transform="rotate(8 120 44)"/>
+     <ellipse cx="80" cy="46" rx="6" ry="26" fill="#fecdd3" transform="rotate(-8 80 46)"/>
+     <ellipse cx="120" cy="46" rx="6" ry="26" fill="#fecdd3" transform="rotate(8 120 46)"/>`,
+    // p3: Face
+    `<circle cx="86" cy="87" r="7.5" fill="#1e293b"/>
+     <circle cx="114" cy="87" r="7.5" fill="#1e293b"/>
+     <circle cx="84" cy="85" r="2.5" fill="white"/>
+     <circle cx="112" cy="85" r="2.5" fill="white"/>
+     <polygon points="100,99 96,104 104,104" fill="#fca5a5"/>
+     <path d="M96 104 Q100 110 104 104" stroke="#fca5a5" stroke-width="2" fill="none"/>
+     <g stroke="rgba(100,116,139,.5)" stroke-width="1.2" stroke-linecap="round">
+       <line x1="62" y1="96" x2="82" y2="100"/>
+       <line x1="62" y1="104" x2="82" y2="104"/>
+       <line x1="138" y1="96" x2="118" y2="100"/>
+       <line x1="138" y1="104" x2="118" y2="104"/>
+     </g>`,
+    // p4: Cottontail
+    `<circle cx="148" cy="158" r="16" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>`,
+    // p5: Paws + carrot
+    `<ellipse cx="72" cy="183" rx="16" ry="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+     <ellipse cx="128" cy="183" rx="16" ry="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+     <path d="M165 155 L155 190 L172 190 Z" fill="#f97316"/>
+     <path d="M165 155 Q170 140 174 148" stroke="#16a34a" stroke-width="3" fill="none"/>`,
+  ]},
+
+  { word:"CLOUD", emoji:"⛅", parts:[
+    // p0: Main cloud
+    `<circle cx="80" cy="110" r="42" fill="white" opacity=".88"/>
+     <circle cx="115" cy="100" r="48" fill="white" opacity=".92"/>
+     <circle cx="148" cy="112" r="36" fill="white" opacity=".85"/>
+     <rect x="44" y="110" width="140" height="50" fill="white" opacity=".9"/>`,
+    // p1: Rainbow arc
+    `<path d="M22 160 Q100 52 178 160" stroke="#ef4444" stroke-width="6" fill="none" opacity=".8"/>
+     <path d="M28 160 Q100 62 172 160" stroke="#f97316" stroke-width="6" fill="none" opacity=".8"/>
+     <path d="M34 160 Q100 72 166 160" stroke="#fde047" stroke-width="6" fill="none" opacity=".8"/>
+     <path d="M40 160 Q100 82 160 160" stroke="#4ade80" stroke-width="6" fill="none" opacity=".8"/>
+     <path d="M46 160 Q100 92 154 160" stroke="#60a5fa" stroke-width="6" fill="none" opacity=".8"/>
+     <path d="M52 160 Q100 102 148 160" stroke="#a78bfa" stroke-width="6" fill="none" opacity=".8"/>`,
+    // p2: Sun peeking
+    `<circle cx="26" cy="58" r="28" fill="#fde047" opacity=".8"/>
+     <g stroke="#fde047" stroke-width="5" stroke-linecap="round" opacity=".7">
+       <line x1="26" y1="22" x2="26" y2="14"/><line x1="48" y1="32" x2="54" y2="26"/>
+       <line x1="4" y1="32" x2="-2" y2="26"/>
+     </g>`,
+    // p3: Raindrops
+    `<g fill="#60a5fa" opacity=".8">
+       <ellipse cx="64" cy="175" rx="5" ry="8"/><ellipse cx="84" cy="185" rx="5" ry="8"/>
+       <ellipse cx="104" cy="178" rx="5" ry="8"/><ellipse cx="124" cy="186" rx="5" ry="8"/>
+       <ellipse cx="144" cy="175" rx="5" ry="8"/>
+     </g>`,
+    // p4: Birds
+    `<path d="M50 38 Q56 30 62 38" stroke="#475569" stroke-width="2.5" fill="none"/>
+     <path d="M68 28 Q75 20 82 28" stroke="#475569" stroke-width="2.5" fill="none"/>`,
+    // p5: Second small cloud
+    `<circle cx="34" cy="88" r="18" fill="rgba(255,255,255,.6)"/>
+     <circle cx="50" cy="82" r="22" fill="rgba(255,255,255,.65)"/>
+     <circle cx="66" cy="88" r="16" fill="rgba(255,255,255,.6)"/>`,
+  ]},
+
+  { word:"HEART", emoji:"❤️", parts:[
+    // p0: Heart shape
+    `<path d="M100 160 Q50 128 44 90 Q38 52 68 44 Q84 40 100 58 Q116 40 132 44 Q162 52 156 90 Q150 128 100 160 Z" fill="#ef4444" stroke="#dc2626" stroke-width="2.5"/>`,
+    // p1: Lighter inner heart
+    `<path d="M100 142 Q66 122 62 96 Q58 72 78 66 Q90 62 100 74 Q110 62 122 66 Q142 72 138 96 Q134 122 100 142 Z" fill="#f87171" opacity=".5"/>`,
+    // p2: Shine
+    `<path d="M68 70 Q72 55 84 58 Q82 72 68 70 Z" fill="rgba(255,255,255,.55)"/>`,
+    // p3: Face
+    `<ellipse cx="84" cy="95" rx="9" ry="10" fill="#991b1b"/>
+     <ellipse cx="116" cy="95" rx="9" ry="10" fill="#991b1b"/>
+     <circle cx="82" cy="93" r="3" fill="white"/>
+     <circle cx="114" cy="93" r="3" fill="white"/>
+     <path d="M80 116 Q100 132 120 116" stroke="#991b1b" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    // p4: Small hearts around
+    `<text x="14" y="72" font-size="18" fill="#f472b6" opacity=".7">♥</text>
+     <text x="166" y="72" font-size="18" fill="#f472b6" opacity=".7">♥</text>
+     <text x="40" y="168" font-size="14" fill="#f472b6" opacity=".65">♥</text>
+     <text x="144" y="168" font-size="14" fill="#f472b6" opacity=".65">♥</text>`,
+    // p5: Sparkle lines
+    `<g stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round">
+       <line x1="100" y1="6" x2="100" y2="16"/>
+       <line x1="18" y1="34" x2="25" y2="41"/>
+       <line x1="182" y1="34" x2="175" y2="41"/>
+       <line x1="8" y1="110" x2="18" y2="112"/>
+       <line x1="192" y1="110" x2="182" y2="112"/>
+     </g>`,
+  ]},
+
+  { word:"OWL", emoji:"🦉", parts:[
+    // p0: Body
+    `<ellipse cx="100" cy="130" rx="44" ry="54" fill="#92400e" stroke="#78350f" stroke-width="2"/>
+     <ellipse cx="100" cy="138" rx="28" ry="38" fill="#fef3c7"/>
+     <g fill="#92400e" opacity=".6">
+       <path d="M60 100 Q56 80 65 72 Q72 82 70 100 Z"/><path d="M140 100 Q144 80 135 72 Q128 82 130 100 Z"/>
+     </g>`,
+    // p1: Head (round)
+    `<circle cx="100" cy="72" r="40" fill="#92400e" stroke="#78350f" stroke-width="2"/>`,
+    // p2: Ear tufts
+    `<polygon points="78,40 68,16 88,36" fill="#78350f"/>
+     <polygon points="122,40 132,16 112,36" fill="#78350f"/>`,
+    // p3: Big eyes
+    `<circle cx="83" cy="68" r="18" fill="#fef3c7" stroke="#78350f" stroke-width="2"/>
+     <circle cx="117" cy="68" r="18" fill="#fef3c7" stroke="#78350f" stroke-width="2"/>
+     <circle cx="83" cy="68" r="11" fill="#f59e0b"/>
+     <circle cx="117" cy="68" r="11" fill="#f59e0b"/>
+     <circle cx="83" cy="68" r="6" fill="#0f172a"/>
+     <circle cx="117" cy="68" r="6" fill="#0f172a"/>
+     <circle cx="81" cy="66" r="2" fill="white"/>
+     <circle cx="115" cy="66" r="2" fill="white"/>`,
+    // p4: Beak + feather pattern
+    `<polygon points="100,82 94,94 106,94" fill="#f59e0b" stroke="#92400e" stroke-width="1.5"/>
+     <g stroke="#78350f" stroke-width="1.2" fill="none" opacity=".5">
+       <path d="M80 110 Q100 104 120 110"/><path d="M76 122 Q100 115 124 122"/>
+       <path d="M74 134 Q100 126 126 134"/>
+     </g>`,
+    // p5: Branch + moon
+    `<rect x="28" y="178" width="144" height="14" rx="7" fill="#78350f"/>
+     <path d="M65 175 L65 188" stroke="#78350f" stroke-width="8"/>
+     <path d="M135 175 L135 188" stroke="#78350f" stroke-width="8"/>
+     <circle cx="174" cy="25" r="18" fill="#fde047" opacity=".6"/>`,
+  ]},
+
+  { word:"BEE", emoji:"🐝", parts:[
+    // p0: Yellow body (big oval)
+    `<ellipse cx="100" cy="110" rx="44" ry="54" fill="#fde047" stroke="#ca8a04" stroke-width="2.5"/>`,
+    // p1: Black stripes
+    `<path d="M56 90 Q100 84 144 90 L144 106 Q100 112 56 106 Z" fill="#1e293b"/>
+     <path d="M56 118 Q100 112 144 118 L144 134 Q100 140 56 134 Z" fill="#1e293b"/>`,
+    // p2: Wings
+    `<ellipse cx="56" cy="78" rx="28" ry="18" fill="rgba(186,230,253,.65)" stroke="rgba(125,211,252,.8)" stroke-width="2" transform="rotate(-30 56 78)"/>
+     <ellipse cx="144" cy="78" rx="28" ry="18" fill="rgba(186,230,253,.65)" stroke="rgba(125,211,252,.8)" stroke-width="2" transform="rotate(30 144 78)"/>`,
+    // p3: Head
+    `<circle cx="100" cy="52" r="30" fill="#fde047" stroke="#ca8a04" stroke-width="2.5"/>`,
+    // p4: Face
+    `<circle cx="88" cy="48" r="8" fill="#1e293b"/>
+     <circle cx="112" cy="48" r="8" fill="#1e293b"/>
+     <circle cx="86" cy="46" r="2.5" fill="white"/>
+     <circle cx="110" cy="46" r="2.5" fill="white"/>
+     <path d="M84 62 Q100 72 116 62" stroke="#1e293b" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+     <line x1="88" y1="26" x2="85" y2="14" stroke="#ca8a04" stroke-width="2.5"/>
+     <line x1="112" y1="26" x2="115" y2="14" stroke="#ca8a04" stroke-width="2.5"/>
+     <circle cx="85" cy="12" r="4" fill="#fde047"/>
+     <circle cx="115" cy="12" r="4" fill="#fde047"/>`,
+    // p5: Stinger + flower
+    `<path d="M100 163 Q96 175 100 184" stroke="#ca8a04" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <text x="14" y="160" font-size="26" fill="#fde047" opacity=".7">🌸</text>
+     <text x="160" y="155" font-size="22" fill="#fde047" opacity=".6">🌸</text>`,
+  ]},
+
+  { word:"BOAT", emoji:"⛵", parts:[
+    // p0: Hull
+    `<path d="M18 150 Q100 175 182 150 L170 130 L30 130 Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="2.5"/>
+     <rect x="30" y="118" width="140" height="16" rx="4" fill="#1d4ed8"/>`,
+    // p1: Mast
+    `<line x1="100" y1="118" x2="100" y2="32" stroke="#92400e" stroke-width="5"/>`,
+    // p2: Main sail
+    `<path d="M100 36 L100 112 L36 112 Z" fill="white" stroke="#d1d5db" stroke-width="1.5"/>`,
+    // p3: Front sail
+    `<path d="M100 50 L100 110 L158 110 Z" fill="#f472b6" stroke="#ec4899" stroke-width="1.5" opacity=".9"/>`,
+    // p4: Flag + decorations
+    `<path d="M100 32 L120 22 L100 38 Z" fill="#ef4444"/>
+     <rect x="62" y="130" width="20" height="8" rx="2" fill="#fbbf24"/>
+     <rect x="118" y="130" width="20" height="8" rx="2" fill="#fbbf24"/>`,
+    // p5: Water waves + seagulls
+    `<path d="M8 170 Q34 158 60 170 Q86 182 112 170 Q138 158 164 170 Q190 182 200 174" stroke="#60a5fa" stroke-width="3.5" fill="none"/>
+     <path d="M8 182 Q34 170 60 182 Q86 194 112 182 Q138 170 164 182 Q190 194 200 186" stroke="#93c5fd" stroke-width="2.5" fill="none" opacity=".7"/>
+     <path d="M42 52 Q48 44 54 52" stroke="white" stroke-width="2" fill="none"/>
+     <path d="M156 44 Q163 36 170 44" stroke="white" stroke-width="2" fill="none"/>`,
+  ]},
+
+];
+
+// ============================
+// KEYBOARD LAYOUT (QWERTY)
+// ============================
+const KEYBOARD = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['Z','X','C','V','B','N','M']
+];
+
+// ============================
+// GAME STATE
+// ============================
+let currentWord = null;
+let guessedLetters = new Set();
+let wrongGuesses = 0;
+let gameOver = false;
+
+const MAX_WRONG = 6;
+
+// ============================
+// DOM HELPERS
+// ============================
+const $ = id => document.getElementById(id);
+
+// ============================
+// INIT
+// ============================
+window.onload = () => {
+  buildBgSparkles();
+  buildKeyboard();
+  newGame();
+};
+
+function buildBgSparkles() {
+  for (let i = 0; i < 18; i++) {
+    const s = document.createElement('div');
+    s.className = 'bg-sparkle';
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.animationDuration = (5 + Math.random() * 8) + 's';
+    s.style.animationDelay = (Math.random() * 10) + 's';
+    s.style.width = s.style.height = (3 + Math.random() * 5) + 'px';
+    document.body.appendChild(s);
+  }
+}
+
+function buildKeyboard() {
+  const kb = $('keyboard');
+  kb.innerHTML = '';
+  KEYBOARD.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'key-row';
+    row.forEach(letter => {
+      const btn = document.createElement('button');
+      btn.className = 'key';
+      btn.textContent = letter;
+      btn.dataset.letter = letter;
+      btn.onclick = () => handleGuess(letter);
+      rowEl.appendChild(btn);
+    });
+    kb.appendChild(rowEl);
+  });
+}
+
+function newGame() {
+  // Pick a random word (avoid same word twice in a row)
+  let pick;
+  do { pick = WORDS[Math.floor(Math.random() * WORDS.length)]; }
+  while (currentWord && pick.word === currentWord.word);
+  currentWord = pick;
+
+  guessedLetters = new Set();
+  wrongGuesses = 0;
+  gameOver = false;
+
+  // Hide overlay
+  $('overlay').classList.remove('show');
+
+  // Reset SVG
+  $('game-svg').innerHTML = '';
+  $('picture-hint').classList.remove('hidden');
+  $('hint-emoji').textContent = '?';
+
+  // Reset wrong count
+  $('wrong-count').textContent = '0';
+
+  // Build word display
+  buildWordDisplay();
+
+  // Reset wrong row
+  $('wrong-row').innerHTML = '';
+  $('wrong-row').innerHTML = '<span class="wrong-label" id="wrong-label" style="display:none">Tried: </span>';
+
+  // Re-enable all keys
+  document.querySelectorAll('.key').forEach(k => {
+    k.classList.remove('used-correct', 'used-wrong');
+  });
+}
+
+function buildWordDisplay() {
+  const wd = $('word-display');
+  wd.innerHTML = '';
+  currentWord.word.split('').forEach(letter => {
+    const slot = document.createElement('div');
+    slot.className = 'letter-slot';
+    slot.dataset.letter = letter;
+    const span = document.createElement('span');
+    span.className = 'ltr';
+    span.textContent = letter;
+    slot.appendChild(span);
+    wd.appendChild(slot);
+  });
+}
+
+// ============================
+// GUESS HANDLING
+// ============================
+function handleGuess(letter) {
+  if (gameOver) return;
+  if (guessedLetters.has(letter)) return;
+  guessedLetters.add(letter);
+
+  const key = document.querySelector(`.key[data-letter="${letter}"]`);
+  const wordContains = currentWord.word.includes(letter);
+
+  if (wordContains) {
+    // Correct! Reveal letter(s) in word + sparkle
+    key.classList.add('used-correct');
+    revealLetters(letter);
+    checkWin();
+  } else {
+    // Wrong! Reveal next picture part
+    key.classList.add('used-wrong');
+    addWrongLetter(letter);
+    wrongGuesses++;
+    $('wrong-count').textContent = wrongGuesses;
+    revealPicturePart(wrongGuesses - 1);
+
+    if (wrongGuesses >= MAX_WRONG) {
+      setTimeout(showLose, 700);
+      gameOver = true;
+    }
+  }
+}
+
+function revealLetters(letter) {
+  let anyRevealed = false;
+  document.querySelectorAll('.letter-slot').forEach(slot => {
+    if (slot.dataset.letter === letter) {
+      const span = slot.querySelector('.ltr');
+      if (!span.classList.contains('show')) {
+        span.classList.add('show');
+        anyRevealed = true;
+        // sparkle burst at this slot's position
+        setTimeout(() => {
+          const rect = slot.getBoundingClientRect();
+          sparkleBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        }, 50);
+      }
+    }
+  });
+}
+
+function checkWin() {
+  const allLetters = new Set(currentWord.word.split(''));
+  const guessedAll = [...allLetters].every(l => guessedLetters.has(l));
+  if (guessedAll) {
+    gameOver = true;
+    setTimeout(showWin, 500);
+  }
+}
+
+function addWrongLetter(letter) {
+  const row = $('wrong-row');
+  const lbl = $('wrong-label');
+  if (lbl) lbl.style.display = 'inline';
+  const span = document.createElement('span');
+  span.className = 'wrong-ltr';
+  span.textContent = letter;
+  row.appendChild(span);
+}
+
+// ============================
+// PICTURE REVEAL
+// ============================
+function revealPicturePart(partIndex) {
+  const svg = $('game-svg');
+  $('picture-hint').classList.add('hidden');
+
+  // Create a group for this part
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.className = 'svg-part';
+  g.innerHTML = currentWord.parts[partIndex];
+
+  // Force reflow before adding 'show' for transition
+  svg.appendChild(g);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { g.classList.add('show'); });
+  });
+}
+
+// ============================
+// WIN / LOSE
+// ============================
+function showWin() {
+  $('ov-emoji').textContent = '🎉';
+  $('ov-title').textContent = 'You got it!';
+  $('ov-word').textContent = currentWord.word;
+  $('ov-sub').textContent = 'Amazing spelling! ⭐ ✨ ⭐';
+  $('overlay').classList.add('show');
+  burstConfetti(55);
+  // Big sparkle in centre
+  sparkleBurst(window.innerWidth / 2, window.innerHeight / 2, 18, true);
+}
+
+function showLose() {
+  // Reveal all remaining parts
+  const partsRevealed = wrongGuesses;
+  for (let i = partsRevealed; i < currentWord.parts.length; i++) {
+    revealPicturePart(i);
+  }
+  setTimeout(() => {
+    $('ov-emoji').textContent = '🌟';
+    $('ov-title').textContent = 'The word was...';
+    $('ov-word').textContent = currentWord.word;
+    $('ov-sub').textContent = "Don't worry, you'll get the next one! 💪";
+    $('overlay').classList.add('show');
+  }, 800);
+}
+
+// ============================
+// SPARKLE BURST
+// ============================
+const SPARK_COLORS = [
+  '#fbbf24','#f472b6','#818cf8','#34d399','#60a5fa','#f97316','#ffffff'
+];
+
+function sparkleBurst(cx, cy, count = 10, big = false) {
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'spark';
+    const angle = (i / count) * Math.PI * 2 + Math.random() * .5;
+    const dist = (big ? 80 : 40) + Math.random() * (big ? 70 : 30);
+    s.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+    s.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+    s.style.left = (cx - 4) + 'px';
+    s.style.top  = (cy - 4) + 'px';
+    s.style.background = SPARK_COLORS[Math.floor(Math.random() * SPARK_COLORS.length)];
+    const size = big ? (6 + Math.random() * 8) : (4 + Math.random() * 6);
+    s.style.width = s.style.height = size + 'px';
+    s.style.animationDuration = (.5 + Math.random() * .4) + 's';
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 900);
+  }
+}
+
+// ============================
+// CONFETTI
+// ============================
+function burstConfetti(n) {
+  const el = $('confetti');
+  const colors = [
+    'rgba(236,72,153,.95)', 'rgba(124,58,237,.95)',
+    'rgba(251,191,36,.95)', 'rgba(255,255,255,.95)',
+    'rgba(52,211,153,.95)', 'rgba(96,165,250,.95)'
+  ];
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.top = (-5 - Math.random() * 15) + 'vh';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animationDuration = (1.0 + Math.random() * 1.0) + 's';
+    p.style.animationDelay = Math.random() * .5 + 's';
+    p.style.transform = `rotate(${Math.random() * 180}deg)`;
+    p.style.width = (8 + Math.random() * 6) + 'px';
+    p.style.height = (10 + Math.random() * 8) + 'px';
+    el.appendChild(p);
+  }
+  setTimeout(() => el.innerHTML = '', 2500);
+}
+</script>
+</body>
+</html>
